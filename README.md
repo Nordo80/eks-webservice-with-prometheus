@@ -60,7 +60,24 @@ The goal was to automate the infrastructure setup using **Terraform** and **Kust
 │               └── service.yaml
 └── terraform_modules
     ├── prometheus
+    │   ├── iam.tf
+    │   ├── instance-profile.tf
+    │   ├── launch-template.tf
+    │   ├── main.tf
+    │   ├── outputs.tf
+    │   ├── sg.tf
+    │   ├── variables.tf
+    │   └── versions.tf
     └── web-service
+        ├── data.tf
+        ├── iam.tf
+        ├── locals.tf
+        ├── main.tf
+        ├── node-template.tf
+        ├── outputs.tf
+        ├── variables.tf
+        └── versions.tf
+
 ```
 
 ---
@@ -73,17 +90,17 @@ The goal was to automate the infrastructure setup using **Terraform** and **Kust
                       ┌────────────────────────────┐
                       │        AWS Cloud           │
                       │                            │
-                      │    ┌──────────────────┐     │
-                      │    │   EC2 Instance   │     │
-                      │    │ (Prometheus)     │◄────┼─── Scrapes metrics
-                      │    └──────────────────┘     │
-                      │              ▲              │
-                      │              │              │
-                      │    ┌──────────────────┐     │
-                      │    │   AWS EKS        │     │
-                      │    │ (Web Service)    │     │
-                      │    │   Flask App      │     │
-                      │    └──────────────────┘     │
+                      │    ┌──────────────────┐    │
+                      │    │   EC2 Instance   │    │
+                      │    │ (Prometheus)     │◄───┼─── Scrapes metrics
+                      │    └──────────────────┘    │
+                      │              ▲             │
+                      │              │             │
+                      │    ┌──────────────────┐    │
+                      │    │   AWS EKS        │    │
+                      │    │ (Web Service)    │    │
+                      │    │   Flask App      │    │
+                      │    └──────────────────┘    │
                       └────────────────────────────┘
 ```
 
@@ -94,9 +111,23 @@ This separation allows for clear observability and independent scaling of monito
 
 ## 🚀 Deployment Process
 
+### 0️⃣ Pre-deployment Setup
+
+Before provisioning any infrastructure, a few critical components were **created manually** to ensure secure and stable operation of the environment:
+
+- 🔐 **KMS Key ARN** — used for encryption of Terraform-managed resources and EKS-related data.  
+  This guarantees that all sensitive data (like secrets, states, and stored configurations) remain securely encrypted.
+
+- 🌐 **Elastic IPs** — reserved and attached to the EKS LoadBalancer.  
+  This ensures that the web service running in EKS always uses **static IP addresses**, allowing stable integration with Prometheus and external monitoring tools.
+
+These manual setup steps were essential for maintaining infrastructure consistency, especially when redeploying or scaling the environment.
+
+
 ### 1️⃣ Building and Pushing Docker Image
 
 ```bash
+cd applications/web-service/image/
 aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <aws_account_id>.dkr.ecr.<region>.amazonaws.com
 
 docker build -t web-service .
@@ -110,6 +141,15 @@ docker push <aws_account_id>.dkr.ecr.<region>.amazonaws.com/web-service:latest
 - The **environment/test** folder applies specific configurations for testing.
 - Once infrastructure is ready:
 
+**Terraform**
+```bash
+cd application/web-service/environment/test
+terraform init
+terraform plan
+terraform apply
+```
+
+**Kustomize**
 ```bash
 aws eks update-kubeconfig --region <region> --name web-service
 kubectl create namespace web-service-deployment
@@ -129,18 +169,11 @@ A simple template (`prometheus.tmpl`) defines job targets, including the EKS ser
 ```bash
 cd applications/prometheus/environment/test
 terraform init
-terraform apply -auto-approve
+terraform plan
+terraform apply
 ```
 
 Once deployed, Prometheus scrapes metrics from the EKS web-service via the public LoadBalancer IP.
-
----
-
-## 🌐 Network & Access Setup
-
-- **Prometheus EC2** accesses the **EKS LoadBalancer** using the external IP exposed by the `Service` manifest.  
-- Security Groups were configured to allow Prometheus inbound/outbound access on port `9090` and application metrics on `80`.  
-- Elastic IPs were assigned for easier monitoring and persistence.
 
 ---
 
@@ -178,8 +211,15 @@ http://<prometheus-ec2-public-ip>:9090
 ---
 
 ## 🖼 Screenshots
+### Web service
+<img width="1081" height="304" alt="main_page" src="https://github.com/user-attachments/assets/8516a2a1-8a7f-419f-8cbe-9ad1b527327b" />
+<img width="1774" height="336" alt="gandalf_page" src="https://github.com/user-attachments/assets/94cf10ed-b65e-4ab4-84e9-857f1d5137a0" />
+<img width="1774" height="336" alt="colombo_page" src="https://github.com/user-attachments/assets/f455e0df-8ff3-45b2-983d-1aae6401d032" />
+<img width="1081" height="304" alt="metrics_page" src="https://github.com/user-attachments/assets/94d5072f-55da-4e80-bac4-43ae70000944" />
 
-> Screenshots will be added here, showing successful deployment and Prometheus metrics scraping.
+### Prometheus
+<img width="1774" height="336" alt="prometheus1" src="https://github.com/user-attachments/assets/712c59b8-aa5a-49bf-8a57-4a26c91f999c" />
+<img width="1777" height="1045" alt="prometheus2" src="https://github.com/user-attachments/assets/1f961479-d6f7-4eb0-b21a-476e292fceb4" />
 
 ---
 
@@ -189,6 +229,7 @@ http://<prometheus-ec2-public-ip>:9090
 - Use Prometheus Operator inside EKS for production-grade monitoring
 - Add logging for application
 - Will make infra without public prometheus and /metric endpoint
+- Prepare GitHub Actions pipeline
 - And MANY other things
 
 ---

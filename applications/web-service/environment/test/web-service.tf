@@ -17,7 +17,7 @@ module "web-service" {
       }
 
       node_labels = {
-        Environment = "Prod"
+        Environment = "Test"
         Application = "Web-service"
       }
     }
