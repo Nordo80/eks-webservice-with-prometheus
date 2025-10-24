@@ -6,12 +6,6 @@ module "ec2" {
     volume_size = 40
     kms_key_arn = "arn:aws:kms:eu-central-1:091590067827:key/65ec6561-12ed-4ff4-8ee9-16b9975374c0"
   }
-  user_data = {
-    template_name = "prometheus.tmpl"
-    variables = {
-      aws_region         = "eu-central-1"
-    }
-  }
   ec2_iam_role = "prometheus-role"
   iam_role_name           = "prometheus-role"
   iam_additional_policies = ["arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore","arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess"]

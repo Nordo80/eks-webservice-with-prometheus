@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 2m
+
+scrape_configs:
+  - job_name: 'web-site'
+    scrape_interval: 2m
+    scrape_timeout: 30s
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: ['35.156.56.176']

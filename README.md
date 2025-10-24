@@ -6,15 +6,16 @@
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker&logoColor=white)
 ![Flask](https://img.shields.io/badge/Backend-Flask-000000?logo=flask&logoColor=white)
 ![Prometheus](https://img.shields.io/badge/Monitoring-Prometheus-E6522C?logo=prometheus&logoColor=white)
+![Ansible](https://img.shields.io/badge/Automation-Ansible-EE0000?logo=ansible&logoColor=white)
 
 ---
 
 ## 🧭 Introduction
 
-**eks-webservice-with-prometheus** is a full-stack infrastructure project showcasing how to deploy a **Flask web application** on **AWS EKS**, monitored by **Prometheus** running on an **EC2 instance**.  
-The goal was to automate the infrastructure setup using **Terraform** and **Kustomize**, containerize the application using **Docker**, and establish monitoring through Prometheus scraping metrics from the web service.
+**eks-webservice-with-prometheus** is a complete infrastructure project demonstrating how to deploy a **Flask web application** on **AWS EKS**, monitored by **Prometheus** running on an **EC2 instance**.  
+The infrastructure is automated with **Terraform**, Kubernetes configuration is managed via **Kustomize**, and **Prometheus** installation is automated with **Ansible**.
 
-🧠 *No AI tools were used during implementation — only official documentation, local repositories, and manual configurations. This README was generated using AI purely for presentation purposes.*
+🧠 *No AI tools were used during implementation — only official documentation, local repositories, and manual configuration. This README was generated with AI purely for presentation purposes.*
 
 ---
 
@@ -24,11 +25,12 @@ The goal was to automate the infrastructure setup using **Terraform** and **Kust
 |-------|-------------|----------|
 | Cloud | **AWS** | Infrastructure hosting |
 | IaC | **Terraform** | Automated provisioning of EKS & EC2 resources |
+| Configuration Mgmt | **Ansible** | Automated Prometheus installation on EC2 |
 | Container | **Docker** | Web app containerization |
 | Orchestration | **EKS (Kubernetes)** | Hosting web-service pods |
 | Backend | **Flask (Python)** | Lightweight web framework |
 | Monitoring | **Prometheus (on EC2)** | Metrics collection from EKS web-service |
-| Config Mgmt | **Kustomize** | Declarative Kubernetes manifests |
+| Manifests | **Kustomize** | Declarative Kubernetes manifests |
 
 ---
 
@@ -38,10 +40,35 @@ The goal was to automate the infrastructure setup using **Terraform** and **Kust
 .
 ├── applications
 │   ├── prometheus
+│   │   ├── ansible
+│   │   │   ├── ansible.cfg
+│   │   │   ├── group_vars
+│   │   │   │   ├── all
+│   │   │   │   └── test
+│   │   │   ├── handlers
+│   │   │   │   └── main.yml
+│   │   │   ├── install.yml
+│   │   │   ├── inventory
+│   │   │   │   └── test
+│   │   │   ├── meta
+│   │   │   │   └── main.yml
+│   │   │   └── roles
+│   │   │       └── prometheus
+│   │   │           ├── defaults
+│   │   │           │   └── all
+│   │   │           ├── handlers
+│   │   │           │   └── main.yml
+│   │   │           ├── meta
+│   │   │           │   └── main.yml
+│   │   │           ├── tasks
+│   │   │           │   └── main.yml
+│   │   │           └── templates
+│   │   │               ├── prometheus.rules.yml.j2
+│   │   │               ├── prometheus.service.j2
+│   │   │               └── prometheus.yml.j2
 │   │   └── environment
 │   │       └── test
 │   │           ├── prometheus.tf
-│   │           ├── prometheus.tmpl
 │   │           └── provider.tf
 │   └── web-service
 │       ├── environment
@@ -52,22 +79,28 @@ The goal was to automate the infrastructure setup using **Terraform** and **Kust
 │       │   ├── app.py
 │       │   ├── Dockerfile
 │       │   ├── requirements.txt
-│       │   └── templates/
+│       │   ├── static
+│       │   │   └── people_photo
+│       │   │       └── gandalf-laughing.gif
+│       │   └── templates
+│       │       ├── gandalf_index.html
+│       │       └── metrics_index.html
 │       └── kustomize
 │           ├── kustomization.yml
-│           └── resources/
+│           └── resources
 │               ├── deployment.yaml
 │               └── service.yaml
+├── README.md
 └── terraform_modules
     ├── prometheus
-    │   ├── iam.tf
-    │   ├── instance-profile.tf
-    │   ├── launch-template.tf
-    │   ├── main.tf
-    │   ├── outputs.tf
-    │   ├── sg.tf
-    │   ├── variables.tf
-    │   └── versions.tf
+    │   ├── iam.tf
+    │   ├── instance-profile.tf
+    │   ├── launch-template.tf
+    │   ├── main.tf
+    │   ├── outputs.tf
+    │   ├── sg.tf
+    │   ├── variables.tf
+    │   └── versions.tf
     └── web-service
         ├── data.tf
         ├── iam.tf
@@ -77,9 +110,7 @@ The goal was to automate the infrastructure setup using **Terraform** and **Kust
         ├── outputs.tf
         ├── variables.tf
         └── versions.tf
-
 ```
-
 ---
 
 ## 🏗 Architecture Overview
@@ -113,16 +144,18 @@ This separation allows for clear observability and independent scaling of monito
 
 ### 0️⃣ Pre-deployment Setup
 
-Before provisioning any infrastructure, a few critical components were **created manually** to ensure secure and stable operation of the environment:
+Before deploying the infrastructure, several essential components were prepared manually:
 
-- 🔐 **KMS Key ARN** — used for encryption of Terraform-managed resources and EKS-related data.  
-  This guarantees that all sensitive data (like secrets, states, and stored configurations) remain securely encrypted.
+- 🔐 **Created SSH key** — generated and placed in the `ssh/` directory.  
+  Used by Ansible to connect to the EC2 instance for Prometheus installation.  
 
-- 🌐 **Elastic IPs** — reserved and attached to the EKS LoadBalancer.  
-  This ensures that the web service running in EKS always uses **static IP addresses**, allowing stable integration with Prometheus and external monitoring tools.
+- ⚙️ **Installed Ansible Core** — required for automating Prometheus installation via `ansible-playbook`.
 
-These manual setup steps were essential for maintaining infrastructure consistency, especially when redeploying or scaling the environment.
+- 🔐 **KMS Key ARN** — used for encryption of Terraform-managed resources and EKS data.  
 
+- 🌐 **Elastic IPs** — reserved and attached to the EKS LoadBalancer to provide a static IP address for consistent Prometheus monitoring.
+
+---
 
 ### 1️⃣ Building and Pushing Docker Image
 
@@ -135,53 +168,66 @@ docker tag web-service:latest <aws_account_id>.dkr.ecr.<region>.amazonaws.com/we
 docker push <aws_account_id>.dkr.ecr.<region>.amazonaws.com/web-service:latest
 ```
 
+---
+
 ### 2️⃣ Deploying Web Service via Terraform and Kustomize
 
-- The **Terraform module** provisions EKS cluster and IAM resources.
-- The **environment/test** folder applies specific configurations for testing.
-- Once infrastructure is ready:
-
-**Terraform**
 ```bash
-cd application/web-service/environment/test
+cd applications/web-service/environment/test
 terraform init
-terraform plan
 terraform apply
 ```
 
-**Kustomize**
+Then:
+
 ```bash
 aws eks update-kubeconfig --region <region> --name web-service
 kubectl create namespace web-service-deployment
 kubectl apply -k ./applications/web-service/kustomize/
 ```
 
-The web-service exposes three endpoints:
+The web service exposes three endpoints:
 - `/metrics` → Prometheus metrics  
-- `/colombo` → Current time in Colombo  
-- `/gandalf` → Displays Gandalf GIF  
+- `/colombo` → current time in Colombo  
+- `/gandalf` → displays Gandalf GIF  
 
-### 3️⃣ Deploying Prometheus on EC2
+---
 
-Prometheus was provisioned using a dedicated Terraform module (`terraform_modules/prometheus`).  
-A simple template (`prometheus.tmpl`) defines job targets, including the EKS service endpoint.
+### 3️⃣ Deploying Prometheus via Terraform and Ansible
 
+1. **Provision EC2 instance** for Prometheus:
 ```bash
 cd applications/prometheus/environment/test
 terraform init
-terraform plan
 terraform apply
 ```
 
-Once deployed, Prometheus scrapes metrics from the EKS web-service via the public LoadBalancer IP.
+2. **Install Prometheus using Ansible:**
+```bash
+cd applications/prometheus/ansible
+ansible-playbook -i inventory/test install.yml
+```
+
+Ansible installs and configures Prometheus on the EC2 instance using templates:
+- `prometheus.yml.j2` — scrape target configuration  
+- `prometheus.rules.yml.j2` — alert rules  
+- `prometheus.service.j2` — systemd service configuration  
+
+Once completed, Prometheus is available at:
+```
+http://<prometheus-ec2-public-ip>:9090
+```
 
 ---
 
 ## 📊 Prometheus Integration
 
-Prometheus configuration (`prometheus.tmpl`) defines the web-service target:
+Example configuration from `prometheus.yml.j2`:
 
 ```yaml
+global:
+  scrape_interval: 2m
+
 scrape_configs:
   - job_name: 'web-site'
     scrape_interval: 2m
@@ -189,13 +235,7 @@ scrape_configs:
     metrics_path: /metrics
     scheme: http
     static_configs:
-      - targets: ['<web-service-ip>']
-```
-
-Metrics can be visualized by visiting:
-
-```
-http://<prometheus-ec2-public-ip>:9090
+      - targets: ['<web-service-lb-ip>']
 ```
 
 ---
@@ -205,8 +245,9 @@ http://<prometheus-ec2-public-ip>:9090
 | Issue | Solution |
 |-------|-----------|
 | Prometheus not scraping | Check `targets` tab in Prometheus UI |
-| Metrics endpoint timeout | Ensure `Service` exposes correct port and type `LoadBalancer` |
-| Terraform errors | Run `terraform validate` and check provider credentials |
+| Timeout on /metrics | Ensure `Service` uses `LoadBalancer` and the correct port |
+| Terraform errors | Run `terraform validate` and verify AWS credentials |
+| Ansible SSH errors | Ensure SSH key exists in `ssh/` and `inventory/test` is configured correctly |
 
 ---
 
@@ -218,24 +259,25 @@ http://<prometheus-ec2-public-ip>:9090
 <img width="1081" height="304" alt="metrics_page" src="https://github.com/user-attachments/assets/94d5072f-55da-4e80-bac4-43ae70000944" />
 
 ### Prometheus
-<img width="1774" height="336" alt="prometheus1" src="https://github.com/user-attachments/assets/712c59b8-aa5a-49bf-8a57-4a26c91f999c" />
-<img width="1777" height="1045" alt="prometheus2" src="https://github.com/user-attachments/assets/1f961479-d6f7-4eb0-b21a-476e292fceb4" />
+<img width="1776" height="305" alt="prometheus1" src="https://github.com/user-attachments/assets/405fdf95-5b48-4a76-9a33-82b764909aad" />
+<img width="1719" height="1010" alt="prometheus2" src="https://github.com/user-attachments/assets/ff3b8c1f-db2f-4d7f-83b9-5179ab183d6e" />
 
 ---
 
 ## 🧩 Future Improvements
 
-- Add Grafana for visualization    
-- Use Prometheus Operator inside EKS for production-grade monitoring
-- Add logging for application
-- Will make infra without public prometheus and /metric endpoint
-- Prepare GitHub Actions pipeline
-- And MANY other things
+- Add **Grafana** for visualization  
+- Deploy Prometheus inside EKS using Prometheus Operator  
+- Add application logging  
+- Secure `/metrics` endpoint and Prometheus access  
+- Add GitHub Actions CI/CD pipeline  
+- Implement alerting and dashboards
+- Add terraform state file into S3 bucket
+- Seperated role and playbook for prometheus
+- Add bastion host for managing other instances with ansible
 
 ---
 
 ## 🧑‍💻 Author
 
 **Made with ❤️ by [Nordo80](https://github.com/Nordo80)**
-
----

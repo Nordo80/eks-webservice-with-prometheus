@@ -98,7 +98,7 @@ variable "ec2_root_block_device" {
 variable "key_pair_name" {
   description = "Key pair name"
   type        = string
-  default     = null
+  default     = "ansible-prometheus"
 }
 
 variable "http_hop_limit" {
@@ -211,6 +211,13 @@ variable "sg_ingress_rules" {
     protocol        = "TCP"
     cidr_blocks     = ["0.0.0.0/0"]
     description     = "Allow prometheus port"
+    },
+    {
+    from_port       = 22
+    to_port         = 22
+    protocol        = "TCP"
+    cidr_blocks     = ["0.0.0.0/0"]
+    description     = "Allow ssh"
     }]
 }
 
